@@ -122,7 +122,8 @@ LINKEDIN_LI_AT = "AQEDATxeSykB3FVaAAABm1_XAOEAAAGeae6IP1YAJ-DvbO_OsE2wjoXK7AJYJl
 LINKEDIN_HEADED = False
 
 # Playwright browser channel. Set to "msedge" to launch your local Edge browser,
-# "chrome" for Google Chrome, or None for Playwright's default bundled Chromium.
+# "chrome" for Google Chrome, "firefox" to launch a Firefox instance, or None for 
+# Playwright's default bundled Chromium.
 # (Recommended: "msedge" if you extracted cookies from Edge).
 LINKEDIN_CHANNEL = "msedge"
 

@@ -127,15 +127,21 @@ class LinkedInScraper:
         
         launch_kwargs = {
             "headless": not self.headed,
-            "args": [
+        }
+        
+        is_firefox = (self.channel == "firefox")
+        if is_firefox:
+            browser_type = self._pw.firefox
+        else:
+            browser_type = self._pw.chromium
+            launch_kwargs["args"] = [
                 "--disable-blink-features=AutomationControlled",
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--disable-search-engine-choice-screen",
-            ],
-        }
-        if self.channel:
-            launch_kwargs["channel"] = self.channel
+            ]
+            if self.channel:
+                launch_kwargs["channel"] = self.channel
 
         launch_args = {
             "user_data_dir": profile_dir,
@@ -150,7 +156,7 @@ class LinkedInScraper:
                 "Chrome/124.0.0.0 Safari/537.36"
             )
 
-        self._context = self._pw.chromium.launch_persistent_context(**launch_args)
+        self._context = browser_type.launch_persistent_context(**launch_args)
         
         # Check if the persistent profile already has a valid session.
         log.info("  Playwright persistent browser context launched (headed=%s).", self.headed)
