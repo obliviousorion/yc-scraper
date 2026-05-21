@@ -1,103 +1,132 @@
-# YC Startup Scraper
+# YCombinator Startup Scraper
 
-A high-performance, modular Python scraper that collects YC-backed startup data through four sequential stages and exports to JSON + professionally styled, multi-sheet Excel files.
+A robust and modular Python command-line utility designed to extract, enrich, and export structured data from YCombinator-backed startup profiles and active remote job listings. 
 
----
+The tool implements a four-stage ETL pipeline, incorporating direct API queries, multi-threaded HTML parsing, and automated browser sessions with session persistence and automated authentication recovery.
 
-## 🚀 Key Features
+## Pipeline Architecture
 
-* **Stage 1 (Algolia Bulk Fetch)**: paginated REST API extraction of active startups matching filters.
-* **Stage 2 (Social Enrichment)**: extracts social links (LinkedIn, Twitter/X, GitHub, etc.) from YC company profiles.
-* **Stage 3 (Remote Job Extraction)**: crawls YC job pages, capturing roles, salary, equity, and apply links.
-* **Stage 4 (LinkedIn Member Extraction)**: crawls LinkedIn `/people/` pages via Playwright automation.
-* **Advanced Bot-Bypass**: Uses a **Persistent Browser Profile** to retain session and tracking cookies, completely preventing HTTP 999 blocks.
-* **Refined Session Recovery**: Automatically catches redirect loops (`ERR_TOO_MANY_REDIRECTS`), clears expired state, and provides a headed manual login window.
-* **Beautiful Excel Sheets**: Auto-formats output with frozen panes, filtered headers, custom YC-orange theme styling, and active hyperlinks.
+The scraper executes sequentially in four distinct stages:
 
----
+1. **Stage 1 (Index Extraction):** Performs paginated queries against YCombinator's public Algolia search index to retrieve baseline startup metadata matching specified filters (e.g., remote hiring status, team size, industries).
+2. **Stage 2 (Social Link Parsing):** Concurrently requests and parses company profile pages on `ycombinator.com` to extract verified social media links (LinkedIn, Twitter/X, GitHub, Crunchbase) and primary company website URLs.
+3. **Stage 3 (Remote Job Crawling):** Crawls associated YC job boards to extract active role postings, geographic locations, salary ranges, equity offerings, and direct application links.
+4. **Stage 4 (LinkedIn Member Metrics):** Utilizes Playwright automation to navigate to LinkedIn company pages and retrieve total employee/member counts.
 
-## 📂 Project Structure
+## Directory Layout
 
 ```text
 yc-scraper/
-├── requirements.txt       # Project dependencies
+├── requirements.txt       # Python dependencies
 ├── README.md              # Documentation
-├── config.py              # Central configuration & credentials
-├── main.py                # Main script entry point
-├── test_run.py            # Fast 3-company sanity verification
+├── config.py              # Central settings and parameters
+├── main.py                # Pipeline entry point
+├── test_run.py            # Development/sanity test runner (3-company limit)
 ├── scraper/
 │   ├── __init__.py
-│   ├── algolia.py         # Stage 1: Algolia index fetching
-│   ├── social.py          # Stage 2: YC profile parsing
-│   ├── jobs.py            # Stage 3: Remote jobs crawler
-│   ├── linkedin.py        # Stage 4: Playwright browser automation
-│   ├── normalize.py       # Data normalisation
-│   └── export.py          # JSON + styled Excel exporter
-└── data/                  # Output & Persistent browser profile (auto-created)
+│   ├── algolia.py         # Algolia query execution (Stage 1)
+│   ├── social.py          # YC profile HTML parsing (Stage 2)
+│   ├── jobs.py            # YC job board scraping (Stage 3)
+│   ├── linkedin.py        # Playwright LinkedIn automations (Stage 4)
+│   ├── normalize.py       # Data validation and normalization
+│   └── export.py          # JSON and formatted Excel exporters
+└── data/                  # Output and persistent browser profile storage (git-ignored)
 ```
 
----
+## Installation & Environment Setup
 
-## ⚙️ Installation & Setup (Using `uv`)
+This project uses the `uv` package manager to ensure fast execution, deterministic dependency resolution, and isolated virtual environments.
 
-This project is optimized to run using [**`uv`**](https://github.com/astral-sh/uv), the ultra-fast Python package installer and resolver.
+### 1. Prerequisite Checklist
 
-### Step 1: Run with `uv`
-`uv` manages virtual environments and installs dependencies from `requirements.txt` automatically. Simply run:
+- Python 3.10 or higher.
+- `uv` installed on your system.
+
+### 2. Download and Initialize
+
+Clone the repository and install the required browser binaries for Playwright:
+
 ```powershell
-uv run main.py
-```
+# Clone the repository
+git clone <repository-url>
+cd yc-scraper
 
-### Step 2: Install Playwright Browsers (One-Time)
-Install the Playwright browser binaries:
-```powershell
+# Install the required Playwright browser binary (Chromium)
 uv run playwright install chromium
 ```
 
----
+## Configuration
 
-## 🔒 LinkedIn Scraper Configuration (Stage 4)
+All functional parameters, API credentials, and runtime behaviors are defined in `config.py`.
 
-LinkedIn rate-limits standard requests aggressively. To scrape safely, the scraper launches a **Persistent Browser Session** using Microsoft Edge, keeping you authenticated between runs.
+### 1. Algolia Filtering
 
-### One-Time Setup:
-1. Open [**`config.py`**](file:///c:/projects/yc-scraper/config.py) and configure these settings:
+Customize startup search criteria by modifying the `FILTERS` dictionary in `config.py`:
+
+```python
+FILTERS = {
+    "facetFilters": [
+        ["isHiring:true"],
+        ["regions:Fully Remote"],
+    ],
+    "numericFilters": [
+        "team_size >= 1"
+    ],
+}
+```
+
+### 2. LinkedIn Authentication and Session Persistence
+
+LinkedIn implements aggressive anti-bot protections. To bypass standard roadblocks and avoid repeated login prompts, the scraper maintains a persistent browser profile state.
+
+1. **Extract Cookie Value:** Log into your LinkedIn account in your standard browser. Open Developer Tools, navigate to the Storage/Application tab, select Cookies, and copy the value of the `li_at` cookie.
+2. **Configure Settings in `config.py`:**
    ```python
-   LINKEDIN_HEADED = True      # Launch a visible browser window
-   LINKEDIN_CHANNEL = "msedge"  # Use Microsoft Edge (matches your regular cookies)
+   # Paste your li_at token
+   LINKEDIN_LI_AT = "AQEDATxeSykB3FVa..."
+   
+   # Browser visibility
+   LINKEDIN_HEADED = False
+   
+   # Set to "msedge" if you extracted your cookie from Microsoft Edge,
+   # "chrome" for Google Chrome, or None for the default Chromium.
+   LINKEDIN_CHANNEL = "msedge"
    ```
-2. Run the sanity test or main script:
-   ```powershell
-   uv run test_run.py
-   ```
-3. A Microsoft Edge window will launch. **Log in manually to your LinkedIn account** inside the opened window (and complete any verification/CAPTCHAs if prompted).
-4. Once you reach your LinkedIn feed, the scraper will detect that the session is successfully authenticated, capture the active session, and automatically save it to `data/browser_profile/`.
+3. **Session Context (`data/browser_profile/`):** The scraper initializes a persistent browser context on disk. Authentication credentials and session cookies are preserved here across executions.
 
-**That's it!** All future runs will run completely hands-free. The scraper will launch in the background, detect the active session, and scrape company member counts automatically without prompting you to log in.
+### 3. Session Recovery and Anti-Bot Handling
 
----
+If the persistent session expires or encounters a redirect loop (often caused by invalid, expired, or locked session tokens), the scraper:
+1. Automatically detects the authentication loop.
+2. Clears the corrupted profile context in `data/browser_profile/`.
+3. Spins up a headed browser window (`LINKEDIN_HEADED = True` is forced temporarily) to allow manual authentication or CAPTCHA resolution.
+4. Saves the newly validated state to disk, returning to headless runs on subsequent invocations.
 
-## 📊 Usage & Commands
+## Running the Scraper
 
-### Run Sanity Test (Fast 3-company check)
-Verifies all 4 stages of the scraper on a tiny batch:
+### Sanity Check (Highly Recommended)
+
+Executes a lightweight, end-to-end run limited to 3 companies to verify that selectors, paths, and network configurations are functioning properly:
+
 ```powershell
 uv run test_run.py
 ```
 
-### Run Full Production Scraper
-Executes the scraper across all pages matching the filters in `config.py`:
+### Full Production Execution
+
+Executes the pipeline across all matching startups returned by the Algolia filters:
+
 ```powershell
 uv run main.py
 ```
 
----
+## Data Output
 
-## 💾 Exported Outputs
+Processed results are saved to the `data/` directory with a unique timestamp suffix (`yc_startups_YYYYMMDD_HHMMSS`):
 
-All results are exported into the `data/` directory:
-* **`yc_startups_YYYYMMDD_HHMMSS.json`**: Complete, structured raw data.
-* **`yc_startups_YYYYMMDD_HHMMSS.xlsx`**: Styled Excel sheet with two tabs:
-  * *YC Startups*: Company metadata, descriptions, sizes, social links, and LinkedIn member counts.
-  * *Remote Jobs*: Flattened lists of remote opportunities with salaries, equities, and application links.
-* **`scraper.log`**: Standard run logs for diagnostic monitoring.
+- **JSON Data (`.json`):** Contains the complete, structured hierarchical dataset.
+- **Excel Workbook (`.xlsx`):** A professionally formatted spreadsheet containing two sheets:
+  - *YC Startups:* Consolidated company profiles, social URLs, and employee metrics.
+  - *Remote Jobs:* Active remote listings with salary, equity, and direct links.
+  - Features automatic column width optimization, enabled filter toggles, frozen header rows, and functional hyperlinks.
+- **Execution Log (`scraper.log`):** Detailed application logging output for troubleshooting.
