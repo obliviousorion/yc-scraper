@@ -1,0 +1,26 @@
+# ── Virtual Environments & Dependencies ────────────────────────────────────────
+.venv/
+venv/
+ENV/
+env/
+
+# ── Python Cache & Bytecode ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ── Scraper Data & Exports ────────────────────────────────────────────────────
+# Ignore all generated JSON, Excel, and log files in the output directory
+data/
+
+# ── IDE & Editor Settings ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.pydevproject
+
+# ── System Files ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
